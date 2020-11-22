@@ -166,10 +166,10 @@ public class DummyFourInRowAgentProgram implements AgentProgram {
         int row = nextRow(tempBoard, column);
         if(row < 0) return false;
         tempBoard[row][column] = token;
-        return check(board) == token;
+        return check(tempBoard) == token;
     }
 
-    int[] negamax(int size, int[][] oldBoard, String curColor) {
+    int[] negamax(int size, int[][] oldBoard, String curColor/*, int depth*/) {
         int[][] board = cloneArray(oldBoard);
         String nextColor = curColor;
         int[] results = {0, 0};
@@ -177,11 +177,24 @@ public class DummyFourInRowAgentProgram implements AgentProgram {
             return results;
 
         for(int x = 0; x < size; x++) // check if current player can win next move
-            if(color.equals(nextColor) && isWinningMove(nextColor, x, board)){
+            if(isWinningMove(nextColor, x, board)){
                 results[0] = x;
                 results[1] = (size*size - countMoves(board))/2;
                 return results;
             }
+
+        /*if(depth == 0){
+            results[1] = -size*size;
+            for(int x = 0; x < size; x++) {
+                int score = (size*size - countMoves(board))/4;
+                if (score > results[1] && nextRow(board, x) >= 0) {
+                    results[0] = x;
+                    results[1] = score; // keep track of best possible score so far.
+                }
+            }
+            //System.out.println(results[0]+":"+nextRow(board, results[0])+":"+color + " by depth expiring" );
+            return results;
+        }*/
 
 
         results[1] = -size*size;
@@ -190,12 +203,15 @@ public class DummyFourInRowAgentProgram implements AgentProgram {
 
         for(int x = 0; x < size; x++) {
             play(nextColor, x, board);// It's opponent turn in P2 position after current player plays x column.
-            int[] score = negamax(size, board, nextColor);
+            int[] score = negamax(size, board, nextColor/*, depth - 1*/);
             score[1] = -score[1];// If current player plays col x, his score will be the opposite of opponent's score after playing col x
             if (score[1] > results[1]){
                     results[0] = x;
                     results[1] = score[1]; // keep track of best possible score so far.
-                }
+            }else if(score[1] == results[1] && nextRow(board, results[0]) < 0){
+                results[0] = x;
+                results[1] = score[1];
+            }
         }
 
         return results;
@@ -203,14 +219,14 @@ public class DummyFourInRowAgentProgram implements AgentProgram {
     
     @Override
     public Action compute(Percept p) {        
-        long time = (long)(200 * Math.random());
+        long time = (long)(10 * Math.random());
         try{
            Thread.sleep(time);
         }catch(Exception e){}
         if( p.getAttribute(FourInRow.TURN).equals(color) ){
             int n = Integer.parseInt((String)p.getAttribute(FourInRow.SIZE));
             int[][] matrix = generateBoardMatrix(n, p);
-            int[] movement = negamax(n, matrix, this.color);
+            int[] movement = negamax(n, matrix, this.color/*, 10*/);
             int i = nextRow(matrix, movement[0]);
             int j = movement[0];
             /*boolean flag = (i==n-1) || !p.getAttribute((i+1)+":"+j).equals((String)FourInRow.SPACE);
@@ -219,8 +235,10 @@ public class DummyFourInRowAgentProgram implements AgentProgram {
                 j = (int)(n*Math.random());
                 flag = (i==n-1) || !p.getAttribute((i+1)+":"+j).equals((String)FourInRow.SPACE);
             }*/
+            System.out.println(i+":"+j+":"+color );
             return new Action( i+":"+j+":"+color );
         }
+        //System.out.println("I skip turn");
         return new Action(FourInRow.PASS);
     }
 
