@@ -1,134 +1,77 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
-package nsgl.agents.examples.games.fourinrow;
+    /*
+     * To change this template, choose Tools | Templates
+     * and open the template in the editor.
+     */
+    package nsgl.agents.examples.games.fourinrow;
 
-import nsgl.agents.Action;
-import nsgl.agents.AgentProgram;
-import nsgl.agents.Percept;
+    import java.util.Arrays;
+    import nsgl.agents.Action;
+    import nsgl.agents.AgentProgram;
+    import nsgl.agents.Percept;
+    import java.util.HashMap;
+    import java.util.Map;
 
-import java.util.Collection;
-import java.util.Comparator;
-import java.util.LinkedList;
-import java.util.List;
-
-/**
- *
- * @author Jonatan
- */
-public class DummyFourInRowAgentProgram implements AgentProgram {
-    protected String color;
-    protected int[] searchOrder;
-    public DummyFourInRowAgentProgram( String color ){
-        this.color = color;
-    }
-
-    public static final class Minimax{
-        static int MAX = 1000;
-        static int MIN = -1000;
-
-        private Minimax() {}
-
-        public static State minimaxDecision(State state) {
-            return state.getActions().stream().max(Comparator.comparing(Minimax::minValue)).get();
+    public class DummyFourInRowAgentProgram implements AgentProgram {
+        protected String color;
+        public DummyFourInRowAgentProgram( String color ){
+            this.color = color;
         }
+        static Map<Integer, byte[]> transTable = new HashMap<>();//Transposition table
 
-        private static double maxValue(State state, int alpha, int beta) {
-            if(state.isTerminal()){
-                return state.getUtility();
-            }
-
-            int best = MIN;
-            for (State action : state.getActions()) {
-                double val = minValue(action, alpha, beta);
-                best = (int) Math.max(best, val);
-                alpha = Math.max(alpha, best);
-
-                // Alpha Beta Pruning
-                if (beta <= alpha)
-                    break;
-            }
-            return best;
-//        return state.getActions().stream()
-//                .map(Minimax::minValue)
-//                .max(Comparator.comparing(Double::valueOf)).get();
+        private byte[][] generateBoardMatrix(int n, Percept p){
+            byte[][] boardMatrix = new byte[n][n];
+            for (int i = 0; i < n; i++) { //this equals to the row in our matrix.
+                for (int j = 0; j < n; j++) { //this equals to the column in each row.
+                    Object temp = p.getAttribute(i+":"+j);
+                    byte k = 0;
+                    if (temp.equals("white")){k=1;}else if (temp.equals("black")){k=-1;}
+                    boardMatrix[i][j] = k;
+                }
+            };
+            return boardMatrix;
         }
-
-        private static double minValue(State state) {
-            return minValue(state, MIN, MAX);
-        }
-
-        private static double minValue(State state, int alpha, int beta) {
-            if(state.isTerminal()){
-                return state.getUtility();
-            }
-
-            int best = MAX;
-            for (State action : state.getActions()) {
-                double val = maxValue(action, alpha, beta);
-                best = (int) Math.min(best, val);
-                beta = Math.min(beta, best);
-
-                // Alpha Beta Pruning
-                if (beta <= alpha)
-                    break;
-            }
-            return best;
-//        return state.getActions().stream()
-//                .map(Minimax::maxValue)
-//                .min(Comparator.comparing(Double::valueOf)).get();
-        }
-        public static class State {
-
-            int w;
-            int[] move;
-            int[][] board;
-            int color;
-            int stone;
-
-            public State(int[] move, int color, int[][] board, int stone){
-                this.move = move;
+        public static class State{
+            public int moveCount;
+            public byte[][] board;
+            public byte color;
+            public byte win;
+            public State(byte[][] board, byte color){
                 this.board = board;
                 this.color = color;
-                this.w = this.checkWin();
-                this.stone = stone;
+                this.win = this.check();
+                this.moveCount = this.countMoves(this.board);
             }
 
-            Collection<State> getActions(){
-                //System.out.println(this.stone);
-                List<State> actions = new LinkedList<>();
-                int n = this.board.length;
-                for (int j = 0; j < n; j++){
-                    for (int i = n-1; i >= 0; i--){
-                        if (this.board[i][j]==0){
-                            int [][] temp = new int[this.board.length][];
-                            for(int k = 0; k < this.board.length; k++)
-                                temp[k] = this.board[k].clone();
-                            if (this.stone%2==0){
-                                temp[i][j] = this.color;
-                            }else{
-                                temp[i][j] = -this.color;
-                            }
-                            actions.add(new State(new int[]{i, j},this.color,temp, this.stone+1));
-                            i=n;
-                            j++;
-                            if (j==n){
-                                break;
-                            }
-                        }
+            private int countMoves(byte[][] values){
+                int k = 0;
+                for (byte i = 0; i < values.length; i++) {
+                    for (byte j = 0; j < values.length; j++) {
+                        if(values[i][j] != 0) k++;
                     }
                 }
-                return actions;
+                return k;
             }
 
-            public int checkWin() {
-                int HEIGHT = this.board.length;
-                int WIDTH = this.board[0].length;
-                int EMPTY_SLOT = 0;
+            private boolean isFull(){
+                return this.moveCount == this.board.length * this.board.length;
+            }
+
+            private boolean isWinningMove(byte column){
+                int row = nextRow(board, column);
+                if(row < 0) return false;
+                board[row][column] = color;
+                boolean winning = this.check() == color;
+                board[row][column] = 0;
+                return winning;
+            }
+
+            public byte check() {
+                byte HEIGHT = (byte)this.board.length;
+                byte WIDTH = (byte)this.board[0].length;
+                byte EMPTY_SLOT = 0;
                 for (int r = 0; r < HEIGHT; r++) { // iterate rows, bottom to top
                     for (int c = 0; c < WIDTH; c++) { // iterate columns, left to right
-                        int player = this.board[r][c];
+                        byte player = this.board[r][c];
                         if (player == EMPTY_SLOT)
                             continue; // don't check empty slots
 
@@ -157,93 +100,115 @@ public class DummyFourInRowAgentProgram implements AgentProgram {
                 }
                 return EMPTY_SLOT; // no winner found
             }
+        }
 
-            public boolean full(){
-                boolean flag = true;
-                for( int i=0; i<this.board.length&&flag; i++){
-                    for( int j=0; j<this.board[0].length&&flag; j++){
-                        flag &= this.board[i][j] != 0;
-                    }
-                }
-                return flag;
-            }
-
-
-            boolean isTerminal() {
-                return this.w != 0 || full();
-            }
-
-            double getUtility() {
-                int n = (this.board.length*this.board.length/2);
-                if( this.w > 0 ){
-                    if (this.color==1){
-                        return n-this.stone;
-                    }else{
-                        return -(n-this.stone);
-                    }
-                }else{
-                    if( this.w < 0 ){
-                        if (this.color==-1){
-                            return n-this.stone;
-                        }else{
-                            return -(n-this.stone);
-                        }
-                    }else{
-                        return 0;
-                    }
+        static byte nextRow(byte[][] board, byte column){
+            for (byte i = 0; i < board.length; i++) {
+                if(board[i][column] != 0){
+                    return (byte)(i - 1);
                 }
             }
+            return (byte)(board.length - 1);
         }
-    }
 
-    private int[][] generateBoardMatrix(int n, Percept p){
-        int[][] boardMatrix = new int[n][n];
-        for (int i = 0; i < n; i++) { //this equals to the row in our matrix.
-            for (int j = 0; j < n; j++) { //this equals to the column in each row.
-                Object temp = p.getAttribute(i+":"+j);
-                int k = 0;
-                if (temp.equals("white")){k=1;}else if (temp.equals("black")){k=-1;}
-                boardMatrix[i][j] = k;
+        static byte[][] cloneArray(byte[][] src) {
+            int length = src.length;
+            byte[][] target = new byte[length][src[0].length];
+            for (byte i = 0; i < length; i++) {
+                System.arraycopy(src[i], 0, target[i], 0, src[i].length);
             }
+            return target;
         }
-        return boardMatrix;
-    }
 
-    @Override
-    public Action compute(Percept p) {        
-        long time = (long)(10 * Math.random());
-        try{
-           Thread.sleep(time);
-        }catch(Exception e){}
-        if( p.getAttribute(FourInRow.TURN).equals(color) ){
-            int n = Integer.parseInt((String)p.getAttribute(FourInRow.SIZE));
-            int[][] matrix = generateBoardMatrix(n, p);
-            int colorCode = 0;
-            if(this.color.equals(FourInRow.WHITE)){
-                colorCode = 1;
-            }else if(this.color.equals(FourInRow.BLACK)){
-                colorCode = -1;
+        private void play(byte color, byte column, byte[][] board){
+            int row = nextRow(board, column);
+            if(row < 0) return;
+            board[row][column] = color;
+        }
+
+        byte[] negamax(byte[][] oldBoard, byte curColor, int alpha, int beta, byte depth) {
+            byte size = (byte)oldBoard.length;
+            byte[] results = {0, 0};
+            State board = new State(cloneArray(oldBoard), curColor);
+            if(depth == 0){
+                for(byte x = 0; x < size; x++){
+                        results[0] = x;
+                        results[1] = (byte)((size*size - board.moveCount)/2);
+                        transTable.put(Arrays.deepHashCode(oldBoard), results);
+                    }
+                return results;
             }
-            Minimax.State original = new Minimax.State(new int[]{0, 0}, colorCode, matrix, 0);
-            Minimax.State decision = Minimax.minimaxDecision(original);
-            int[] movement = decision.move;
-            int i = movement[0];
-            int j = movement[1];
+            if(board.isFull()) // check for draw game
+                return results;
+
+            for(byte x = 0; x < size; x++) // check if current player can win next move
+                if(color.equals(curColor) && board.isWinningMove(x)){
+                    results[0] = x;
+                    results[1] = (byte)((size*size - board.moveCount - 1)/2);
+                    transTable.put(Arrays.deepHashCode(oldBoard), results);
+                    return results;
+                }
+
+            int max = (size * size - 1 - board.moveCount)/2;	// upper bound of our score as we cannot win immediately
+            if(transTable.containsKey(Arrays.deepHashCode(oldBoard))){
+                results = transTable.get(Arrays.deepHashCode(oldBoard));
+                max = results[1] + (-(size * size) / 2)+ 2; //(-(size * size) / 2)+ 2 ->minimo posible
+            }
+            if(beta > max) {
+                beta = max;                     // there is no need to keep beta above our max possible score.
+                if(alpha >= beta){
+                    results[1] = (byte)beta;
+                    transTable.put(Arrays.deepHashCode(oldBoard), results);
+                    return results;
+                }
+            }
+
+            results[1] = (byte)(-size*size);
+            curColor = (byte)(-curColor);
+
+            for(byte x = 0; x < size; x++) {
+                play(curColor, x, board.board);// It's opponent turn in P2 position after current player plays x column.
+                byte[] score = negamax(board.board, curColor, -beta, -alpha, (byte)(depth - 1));
+                score[1] = (byte)(-score[1]);// If current player plays col x, his score will be the opposite of opponent's score after playing col x
+                if(score[1] >= beta) return score;
+                if(score[1] > alpha){
+                    alpha = score[1];
+                    results[0] = x;
+                    results[1] = score[1]; // keep track of best possible score so far.
+                }
+            }
+            transTable.put(Arrays.deepHashCode(oldBoard), results);
+            return results;
+        }
+
+        @Override
+        public Action compute(Percept p) {
+            long time = (long)(200 * Math.random());
+            try{
+                Thread.sleep(time);
+            }catch(Exception e){}
+            if( p.getAttribute(FourInRow.TURN).equals(color) ){
+                int n = Integer.parseInt((String)p.getAttribute(FourInRow.SIZE));
+                byte[][] matrix = generateBoardMatrix(n, p);
+                byte colorCode = 0;
+                if(this.color.equals(FourInRow.WHITE))colorCode = -1;
+                else if(this.color.equals(FourInRow.BLACK)) colorCode = 1;
+                byte[] movement = negamax(matrix, colorCode, -(n * n) / 2, (n * n) / 2, (byte)255);
+                int i = nextRow(matrix, (byte)movement[0]);
+                int j = movement[0];
             /*boolean flag = (i==n-1) || !p.getAttribute((i+1)+":"+j).equals((String)FourInRow.SPACE);
             while( !flag ){
                 i = (int)(n*Math.random());
                 j = (int)(n*Math.random());
                 flag = (i==n-1) || !p.getAttribute((i+1)+":"+j).equals((String)FourInRow.SPACE);
             }*/
-            System.out.println(i+":"+j+":"+color );
-            return new Action( i+":"+j+":"+color );
+                return new Action( i+":"+j+":"+color );
+            }
+            return new Action(FourInRow.PASS);
         }
-        //System.out.println("I skip turn");
-        return new Action(FourInRow.PASS);
-    }
 
-    @Override
-    public void init() {
+        @Override
+        public void init() {
+        }
+
     }
-    
-}
