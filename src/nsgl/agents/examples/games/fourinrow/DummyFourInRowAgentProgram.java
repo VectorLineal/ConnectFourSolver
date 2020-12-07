@@ -192,48 +192,35 @@ public class DummyFourInRowAgentProgram implements AgentProgram {
             }
             
         int max = (size * size - 1 - countMoves(board))/2;	// upper bound of our score as we cannot win immediately
+        if(transTable.containsKey(Arrays.deepHashCode(oldBoard))){
+        	results = transTable.get(Arrays.deepHashCode(oldBoard));
+        	max = results[1] + (-(size * size) / 2)+ 2; //(-(size * size) / 2)+ 2 ->minimo posible
+        }
       	if(beta > max) {
         	beta = max;                     // there is no need to keep beta above our max possible score.
         	if(alpha >= beta){
-                    results[1]=beta;
-                    return results;
-                }  // prune the exploration if the [alpha;beta] window is empty.
+        		results[1] = beta;
+        		return results;
+        	}
       	}
         
         results[1] = -size*size;
         if(nextColor.equals(FourInRow.WHITE)) nextColor = FourInRow.BLACK;
         else if(nextColor.equals(FourInRow.BLACK)) nextColor = FourInRow.WHITE;
         
-        if(transTable.containsKey(Arrays.deepHashCode(oldBoard))){//check if the board state was already visited
-            int[] prevScore = transTable.get(Arrays.deepHashCode(oldBoard));
-            for(int x = 0; x < size; x++) {
-                play(nextColor, x, board);// It's opponent turn in P2 position after current player plays x column.
-                //int[] score = negamax(size, board, nextColor);
-                prevScore[1] = -prevScore[1];// If current player plays col x, his score will be the opposite of opponent's score after playing col x
-                if(prevScore[1] >= beta) return prevScore;
-                if(prevScore[1] > alpha){
-                	alpha = prevScore[1];
-                	results[0] = x;
-                    results[1] = prevScore[1]; // keep track of best possible score so far.
-                }
+        for(int x = 0; x < size; x++) {
+            play(nextColor, x, board);// It's opponent turn in P2 position after current player plays x column.
+            int[] score = negamax(size, board, nextColor, -beta, -alpha);
+            score[1] = -score[1];// If current player plays col x, his score will be the opposite of opponent's score after playing col x
+            if(score[1] >= beta) return score;
+            if(score[1] > alpha){
+                alpha = score[1];
+                results[0] = x;
+                results[1] = score[1]; // keep track of best possible score so far.
             }
-            transTable.put(Arrays.deepHashCode(oldBoard), results);
-            return results;
-        }else {
-            for(int x = 0; x < size; x++) {
-                play(nextColor, x, board);// It's opponent turn in P2 position after current player plays x column.
-                int[] score = negamax(size, board, nextColor, -beta, -alpha);
-                score[1] = -score[1];// If current player plays col x, his score will be the opposite of opponent's score after playing col x
-                if(score[1] >= beta) return score;
-                if(score[1] > alpha){
-                	alpha = score[1];
-                	results[0] = x;
-                    results[1] = score[1]; // keep track of best possible score so far.
-                }
-            }
-            transTable.put(Arrays.deepHashCode(oldBoard), results);
-            return results;
-        }  
+        }
+        transTable.put(Arrays.deepHashCode(oldBoard), results);
+        return results;
     }
     
     @Override
