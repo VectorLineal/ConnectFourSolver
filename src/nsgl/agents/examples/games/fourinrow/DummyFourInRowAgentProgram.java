@@ -1,4 +1,4 @@
-/*
+    /*
  * To change this template, choose Tools | Templates
  * and open the template in the editor.
  */
@@ -20,7 +20,7 @@ public class DummyFourInRowAgentProgram implements AgentProgram {
     public DummyFourInRowAgentProgram( String color ){
         this.color = color;        
     }
-    static Map<Integer,int[]> transTable = new HashMap<>();//Tabala de transposición.
+    static Map<Integer,int[]> transTable = new HashMap<>();//Transposition table
     
     private int[][] generateBoardMatrix(int n, Percept p){
        
@@ -174,40 +174,10 @@ public class DummyFourInRowAgentProgram implements AgentProgram {
         int row = nextRow(tempBoard, column);
         if(row < 0) return false;
         tempBoard[row][column] = token;
-        return check(board) == token;
+        return check(tempBoard) == token;
     }
 
-    int[] negamax(int size, int[][] oldBoard, String curColor) {
-        if(transTable.containsKey(Arrays.deepHashCode(oldBoard))){
-            int[] prevScore = transTable.get(Arrays.deepHashCode(oldBoard));
-            int[][] board = cloneArray(oldBoard);
-            String nextColor = curColor;
-            int[] results = {0, 0};
-            if(isFull(board)) // check for draw game
-                return results;
-
-            for(int x = 0; x < size; x++) // check if current player can win next move
-                if(color.equals(nextColor) && isWinningMove(nextColor, x, board)){
-                    results[0] = x;
-                    results[1] = (size*size - countMoves(board))/2;
-                    return results;
-                }
-            
-            results[1] = -size*size;
-            if(nextColor.equals(FourInRow.WHITE)) nextColor = FourInRow.BLACK;
-            else if(nextColor.equals(FourInRow.BLACK)) nextColor = FourInRow.WHITE;
-            for(int x = 0; x < size; x++) {
-                play(nextColor, x, board);// It's opponent turn in P2 position after current player plays x column.
-                //int[] score = negamax(size, board, nextColor);
-                prevScore[1] = -prevScore[1];// If current player plays col x, his score will be the opposite of opponent's score after playing col x
-                if (prevScore[1] > results[1]){
-                    results[0] = x;
-                    results[1] = prevScore[1]; // keep track of best possible score so far.
-                }
-            }
-            transTable.put(Arrays.deepHashCode(oldBoard), results);
-            return results;
-        }
+    int[] negamax(int size, int[][] oldBoard, String curColor, int alpha, int beta) {
         int[][] board = cloneArray(oldBoard);
         String nextColor = curColor;
         int[] results = {0, 0};
@@ -220,23 +190,50 @@ public class DummyFourInRowAgentProgram implements AgentProgram {
                 results[1] = (size*size - countMoves(board))/2;
                 return results;
             }
-
-
+            
+        int max = (size * size - 1 - countMoves(board))/2;	// upper bound of our score as we cannot win immediately
+      	if(beta > max) {
+        	beta = max;                     // there is no need to keep beta above our max possible score.
+        	if(alpha >= beta){
+                    results[1]=beta;
+                    return results;
+                }  // prune the exploration if the [alpha;beta] window is empty.
+      	}
+        
         results[1] = -size*size;
         if(nextColor.equals(FourInRow.WHITE)) nextColor = FourInRow.BLACK;
         else if(nextColor.equals(FourInRow.BLACK)) nextColor = FourInRow.WHITE;
-
-        for(int x = 0; x < size; x++) {
-            play(nextColor, x, board);// It's opponent turn in P2 position after current player plays x column.
-            int[] score = negamax(size, board, nextColor);
-            score[1] = -score[1];// If current player plays col x, his score will be the opposite of opponent's score after playing col x
-            if (score[1] > results[1]){
-                    results[0] = x;
+        
+        if(transTable.containsKey(Arrays.deepHashCode(oldBoard))){//check if the board state was already visited
+            int[] prevScore = transTable.get(Arrays.deepHashCode(oldBoard));
+            for(int x = 0; x < size; x++) {
+                play(nextColor, x, board);// It's opponent turn in P2 position after current player plays x column.
+                //int[] score = negamax(size, board, nextColor);
+                prevScore[1] = -prevScore[1];// If current player plays col x, his score will be the opposite of opponent's score after playing col x
+                if(prevScore[1] >= beta) return prevScore;
+                if(prevScore[1] > alpha){
+                	alpha = prevScore[1];
+                	results[0] = x;
+                    results[1] = prevScore[1]; // keep track of best possible score so far.
+                }
+            }
+            transTable.put(Arrays.deepHashCode(oldBoard), results);
+            return results;
+        }else {
+            for(int x = 0; x < size; x++) {
+                play(nextColor, x, board);// It's opponent turn in P2 position after current player plays x column.
+                int[] score = negamax(size, board, nextColor, -beta, -alpha);
+                score[1] = -score[1];// If current player plays col x, his score will be the opposite of opponent's score after playing col x
+                if(score[1] >= beta) return score;
+                if(score[1] > alpha){
+                	alpha = score[1];
+                	results[0] = x;
                     results[1] = score[1]; // keep track of best possible score so far.
                 }
-        }
-        transTable.put(Arrays.deepHashCode(oldBoard), results);
-        return results;
+            }
+            transTable.put(Arrays.deepHashCode(oldBoard), results);
+            return results;
+        }  
     }
     
     @Override
@@ -248,7 +245,7 @@ public class DummyFourInRowAgentProgram implements AgentProgram {
         if( p.getAttribute(FourInRow.TURN).equals(color) ){
             int n = Integer.parseInt((String)p.getAttribute(FourInRow.SIZE));
             int[][] matrix = generateBoardMatrix(n, p);
-            int[] movement = negamax(n, matrix, this.color);
+            int[] movement = negamax(n, matrix, this.color, -(n * n) / 2, (n * n) / 2);
             int i = nextRow(matrix, movement[0]);
             int j = movement[0];
             /*boolean flag = (i==n-1) || !p.getAttribute((i+1)+":"+j).equals((String)FourInRow.SPACE);
