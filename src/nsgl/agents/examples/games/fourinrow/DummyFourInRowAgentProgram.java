@@ -120,24 +120,18 @@
             return target;
         }
 
-        private void play(byte color, byte column, byte[][] board){
-            int row = nextRow(board, column);
-            if(row < 0) return;
+        private byte play(byte color, byte column, byte[][] board){
+            byte row = nextRow(board, column);
+            if(row < 0) return -1;
             board[row][column] = color;
+            return row;
         }
 
-        byte[] negamax(byte[][] oldBoard, byte curColor, int alpha, int beta, byte depth) {
+        byte[] negamax(byte[][] oldBoard, byte curColor, int alpha, int beta/*, byte depth*/) {
             byte size = (byte)oldBoard.length;
-            byte[] results = {0, 0};
-            State board = new State(cloneArray(oldBoard), curColor);
-            if(depth == 0){
-                for(byte x = 0; x < size; x++){
-                        results[0] = x;
-                        results[1] = (byte)((size*size - board.moveCount)/2);
-                        transTable.put(Arrays.deepHashCode(oldBoard), results);
-                    }
-                return results;
-            }
+            byte[] results = {(byte)((oldBoard.length) * Math.random()), 0};
+            State board = new State(oldBoard, curColor);
+
             if(board.isFull()) // check for draw game
                 return results;
 
@@ -163,18 +157,30 @@
                 }
             }
 
-            results[1] = (byte)(-size*size);
+            /*if(depth == 0){
+                for(byte x = 0; x < size; x++){
+                    results[0] = x;
+                    results[1] = (byte)((size*size - board.moveCount)/2);
+                    transTable.put(Arrays.deepHashCode(oldBoard), results);
+                }
+                return results;
+            }*/
+
             curColor = (byte)(-curColor);
 
             for(byte x = 0; x < size; x++) {
-                play(curColor, x, board.board);// It's opponent turn in P2 position after current player plays x column.
-                byte[] score = negamax(board.board, curColor, -beta, -alpha, (byte)(depth - 1));
-                score[1] = (byte)(-score[1]);// If current player plays col x, his score will be the opposite of opponent's score after playing col x
-                if(score[1] >= beta) return score;
-                if(score[1] > alpha){
-                    alpha = score[1];
-                    results[0] = x;
-                    results[1] = score[1]; // keep track of best possible score so far.
+                byte row = play(curColor, x, oldBoard);// It's opponent turn in P2 position after current player plays x column.
+                if(row > -1){
+                    byte[] score = negamax(oldBoard, curColor, -beta, -alpha/*, (byte)(depth - 1)*/);
+                    //deshacer jugada
+                    oldBoard[row][x] = 0;
+                    score[1] = (byte)(-score[1]);// If current player plays col x, his score will be the opposite of opponent's score after playing col x
+                    if(score[1] >= beta) return score;
+                    if(score[1] > alpha){
+                        alpha = score[1];
+                        results[0] = x;
+                        results[1] = score[1]; // keep track of best possible score so far.
+                    }
                 }
             }
             transTable.put(Arrays.deepHashCode(oldBoard), results);
@@ -193,7 +199,7 @@
                 byte colorCode = 0;
                 if(this.color.equals(FourInRow.WHITE))colorCode = -1;
                 else if(this.color.equals(FourInRow.BLACK)) colorCode = 1;
-                byte[] movement = negamax(matrix, colorCode, -(n * n) / 2, (n * n) / 2, (byte)255);
+                byte[] movement = negamax(matrix, colorCode, -(n * n) / 2, (n * n) / 2/*, (byte)255*/);
                 int i = nextRow(matrix, (byte)movement[0]);
                 int j = movement[0];
             /*boolean flag = (i==n-1) || !p.getAttribute((i+1)+":"+j).equals((String)FourInRow.SPACE);
@@ -204,6 +210,7 @@
             }*/
                 return new Action( i+":"+j+":"+color );
             }
+            System.out.println("i skip turn");
             return new Action(FourInRow.PASS);
         }
 

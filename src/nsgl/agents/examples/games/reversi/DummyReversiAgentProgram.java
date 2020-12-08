@@ -15,11 +15,11 @@ import nsgl.agents.Percept;
 public class DummyReversiAgentProgram implements AgentProgram {
     protected String color;
     public DummyReversiAgentProgram( String color ){
-        this.color = color;        
+        this.color = color;
     }
-    
+
     @Override
-    public Action compute(Percept p) {        
+    public Action compute(Percept p) {
         long time = (long)(200 * Math.random());
         try{
            Thread.sleep(time);
@@ -36,5 +36,5 @@ public class DummyReversiAgentProgram implements AgentProgram {
     @Override
     public void init() {
     }
-    
+
 }
